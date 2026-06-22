@@ -57,6 +57,16 @@ Research request arrives
 │    Flag discrepancies           │
 │    Score reliability per source │
 │    Synthesize with source tags  │
+│    EVERY tag MUST carry a URL   │
+└───────────────┬─────────────────┘
+                │
+                ▼
+┌─────────────────────────────────┐
+│ 4. REVIEW: Content & Compliance │
+│    Check regulatory red lines   │
+│    Assess content safety        │
+│    Flag ethical / legal risks   │
+│    Privacy & data compliance    │
 └─────────────────────────────────┘
 ```
 
@@ -114,21 +124,22 @@ auto_css = page.generate_selector(selector)  # regenerates if layout changes
 
 ## Phase 3 — Verify & Synthesize
 
-Every claim tagged with origin:
+**CRITICAL: Every source tag MUST carry a clickable URL.** Never output a bare tag without a link.
 
-| Tag | Source |
-|-----|--------|
-| `[AR:web]` | Agent-Reach Jina Reader |
-| `[AR:search]` | Exa search result |
-| `[AR:social]` | Twitter / Reddit / 小红书 / B站 / V2EX |
-| `[AR:code]` | GitHub search |
-| `[AR:video]` | YouTube / B站 transcript |
-| `[SP:fetch]` | Scrapling Fetcher (HTTP) |
-| `[SP:stealth]` | Scrapling StealthyFetcher (anti-bot bypass) |
-| `[SP:dynamic]` | Scrapling DynamicFetcher (JS rendered) |
-| `[OB]` | Obscura raw crawl |
-| `[AR→SP]` | Agent-Reach discovered, Scrapling verified |
-| `[AR→OB]` | Agent-Reach discovered, Obscura verified |
+Source tag format: `[Platform Name](URL) [AR:source]`
+
+| Tag | Source | Required Link Format |
+|-----|--------|---------------------|
+| `[AR:web]` | Agent-Reach Jina Reader | `[文章标题](URL) [AR:web]` |
+| `[AR:search]` | Web/Exa search result | `[来源名称](URL) [AR:search]` |
+| `[AR:social]` | Twitter / Reddit / 小红书 / B站 / V2EX | `[@作者](URL) [AR:social]` |
+| `[AR:code]` | GitHub search | `[repo/name](URL) [AR:code]` |
+| `[AR:video]` | YouTube / B站 transcript | `[视频标题](URL) [AR:video]` |
+| `[SP:stealth]` | Scrapling StealthyFetcher | `[页面标题](URL) [SP:stealth]` |
+| `[SP:fetch]` | Scrapling Fetcher (HTTP) | `[页面标题](URL) [SP:fetch]` |
+| `[SP:dynamic]` | Scrapling DynamicFetcher (JS) | `[页面标题](URL) [SP:dynamic]` |
+| `[OB]` | Obscura raw crawl | `[页面标题](URL) [OB]` |
+| `[AR→SP]` | Cross-tool verified | `[页面标题](URL) [AR→SP]` |
 
 **Output format:**
 
@@ -136,26 +147,56 @@ Every claim tagged with origin:
 ## OmniScope 研究报告: [Topic]
 
 ### 多平台发现
-| 平台 | 关键发现 | 来源 |
-|------|---------|------|
-| Twitter | ... | [AR:social] |
-| Reddit | ... | [AR:social] |
-| GitHub | ... | [AR:code] |
+| 平台 | 关键发现 | 来源链接 |
+|------|---------|---------|
+| Twitter | @cyrilXBT 列出Scrapling为10大采集神器 | [@cyrilXBT](https://x.com/cyrilXBT/status/xxx) [AR:social] |
+| 36氪 | 9块9的AI文游在小红书火爆 | [36氪](https://www.36kr.com/p/3650102990692743) [AR:search] |
+| GitHub | Spider_XHS 6.5k⭐ | [Spider_XHS](https://github.com/cv-cat/Spider_XHS) [AR:code] |
 
 ### 深度验证
-> [Scrapling/Obscura 抓取的原文关键段落]
+> [Scrapling/Obscura 抓取的原文关键段落，附带抓取 URL]
 
 #### 差异标记
 - ⚠️ 搜索摘要遗漏: [...]
-- ⚠️ 平台间矛盾: [Twitter 说 X vs Reddit 说 Y]
+- ⚠️ 平台间矛盾: [来源A vs 来源B]
 - ✅ 多源一致: [...]
 
 ### 可靠性矩阵
 | 来源 | 类型 | 可靠性 | 理由 |
 |------|------|--------|------|
-| [URL] | 一手页面 | 最高 | Scrapling 绕过反爬抓取 |
-| [URL] | 社交媒体 | 中 | 用户观点，需交叉验证 |
-| [search] | 搜索摘要 | 低 | 可能遗漏关键上下文 |
+| [文章标题](URL) | 一手页面 | 最高 | Scrapling 绕过反爬抓取 |
+| [推文链接](URL) | 社交媒体 | 中 | 用户观点，需交叉验证 |
+| [搜索摘要] | 聚合信息 | 低 | 可能遗漏关键上下文 |
+```
+
+## Phase 4 — Content & Compliance Review (MANDATORY)
+
+**Every report MUST include a content review section** before closing. This is not optional.
+
+Assess the following dimensions:
+
+| 维度 | 检查项 |
+|------|--------|
+| **合规性** | 涉及行业是否有监管红线？平台政策是否允许？ |
+| **内容安全** | 调研对象是否涉及灰色/黑色地带？数据来源是否合法？ |
+| **伦理边界** | AI 生成内容是否有版权/偏见/误导风险？ |
+| **商业道德** | 建议的商业模式是否有法律风险（如二清/支付牌照）？ |
+| **数据隐私** | 抓取的数据是否涉及个人信息？是否符合 GDPR/个保法？ |
+
+**Output format:**
+
+```
+## 内容审查与合规提醒
+
+| 维度 | 评估 | 风险等级 | 建议 |
+|------|------|---------|------|
+| 合规性 | ... | 🟢/🟡/🔴 | ... |
+| 内容安全 | ... | 🟢/🟡/🔴 | ... |
+| 伦理边界 | ... | 🟢/🟡/🔴 | ... |
+| 商业道德 | ... | 🟢/🟡/🔴 | ... |
+| 数据隐私 | ... | 🟢/🟡/🔴 | ... |
+
+> ⚠️ 本报告仅供研究参考，不构成商业建议。具体业务决策请咨询专业律师。
 ```
 
 ## Tool Paths
@@ -170,6 +211,8 @@ Obscura:          D:/myprogram/obscura/target/release/obscura
 
 ## Common Mistakes
 
+- **Bare source tags without URLs**: NEVER output `[AR:social]` without a clickable link. Every tag must be `[Name](URL) [AR:source]`.
+- **Skipping Phase 4**: Every report MUST have a content/compliance review section. No exceptions.
 - **Single-platform blind spot**: researching only via web search, missing social discussion (Twitter/XHS/Reddit often have more candid takes).
 - **Trusting Jina Reader on anti-bot pages**: Jina gets blocked too. If `r.jina.ai` returns empty/error, escalate to Scrapling StealthyFetcher.
 - **Using yt-dlp on B站**: blocked by B站风控. Use Agent-Reach's `bili search` instead (routed via bili-cli).
