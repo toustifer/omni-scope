@@ -34,7 +34,7 @@ OmniScope is a **3-phase research pipeline** that orchestrates three best-in-cla
 |-------|------|------|
 | **Scout** | [Agent-Reach](https://github.com/Panniantong/Agent-Reach) | Multi-platform discovery across 13 channels (Twitter, Reddit, GitHub, YouTube, B站, 小红书, V2EX…) |
 | **Extract** | [Scrapling](https://github.com/D4Vinci/Scrapling) | Penetrate anti-bot defenses + adaptive parsing that survives site redesigns |
-| **Verify** | [Obscura](https://github.com/) / deep-research methodology | Cross-reference search summaries against raw primary sources, flag discrepancies, score reliability |
+| **Verify** | [Obscura](https://github.com/h4ckf0r0day/obscura) / deep-research methodology | Cross-reference search summaries against raw primary sources, flag discrepancies, score reliability |
 
 ## Why OmniScope?
 
@@ -146,7 +146,7 @@ Scrapling is the **extract layer** — when normal fetchers get blocked, Scrapli
 
 **Why we chose it:** 774x faster than BeautifulSoup for text extraction, built-in MCP server for AI integration, and the only framework that combines anti-bot evasion with adaptive parsing in one package.
 
-### 📡 [Obscura](https://github.com/) & deep-research methodology
+### 📡 [Obscura](https://github.com/h4ckf0r0day/obscura) & deep-research methodology
 
 > Ground-truth verification through raw page crawling.
 
