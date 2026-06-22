@@ -62,11 +62,11 @@ Research request arrives
                 │
                 ▼
 ┌─────────────────────────────────┐
-│ 4. REVIEW: Content & Compliance │
-│    Check regulatory red lines   │
-│    Assess content safety        │
-│    Flag ethical / legal risks   │
-│    Privacy & data compliance    │
+│ 4. AUDIT: Source Credibility     │
+│    Score authority & originality │
+│    Flag unverifiable claims      │
+│    Detect bias / commercial agenda│
+│    Timeliness & cross-ref check  │
 └─────────────────────────────────┘
 ```
 
@@ -169,34 +169,34 @@ Source tag format: `[Platform Name](URL) [AR:source]`
 | [搜索摘要] | 聚合信息 | 低 | 可能遗漏关键上下文 |
 ```
 
-## Phase 4 — Content & Compliance Review (MANDATORY)
+## Phase 4 — Source Credibility Audit (MANDATORY)
 
-**Every report MUST include a content review section** before closing. This is not optional.
+**Every report MUST include a source credibility audit** before closing. This is the final quality gate — flag every source that doesn't hold up.
 
-Assess the following dimensions:
+Audit each source across five dimensions:
 
-| 维度 | 检查项 |
-|------|--------|
-| **合规性** | 涉及行业是否有监管红线？平台政策是否允许？ |
-| **内容安全** | 调研对象是否涉及灰色/黑色地带？数据来源是否合法？ |
-| **伦理边界** | AI 生成内容是否有版权/偏见/误导风险？ |
-| **商业道德** | 建议的商业模式是否有法律风险（如二清/支付牌照）？ |
-| **数据隐私** | 抓取的数据是否涉及个人信息？是否符合 GDPR/个保法？ |
+| 维度 | 检查项 | 低可信信号 |
+|------|--------|-----------|
+| **权威性** | 谁发布的？有机构背书吗？ | 个人博客、匿名账号、无署名 |
+| **一手性** | 是原始来源还是转载？ | 转载、聚合、引用引用、搜​​索引擎摘要 |
+| **可验证性** | 数据/结论能被独立验证吗？ | 无数据来源、模糊说辞、"据说""据悉" |
+| **时效性** | 信息是什么时候的？ | 无日期、超过 2 年的市场数据 |
+| **动机/偏见** | 发布者有没有利益相关？ | 软文、竞品报告、创业 BP 自我美化 |
 
 **Output format:**
 
 ```
-## 内容审查与合规提醒
+## 来源可信度审计
 
-| 维度 | 评估 | 风险等级 | 建议 |
-|------|------|---------|------|
-| 合规性 | ... | 🟢/🟡/🔴 | ... |
-| 内容安全 | ... | 🟢/🟡/🔴 | ... |
-| 伦理边界 | ... | 🟢/🟡/🔴 | ... |
-| 商业道德 | ... | 🟢/🟡/🔴 | ... |
-| 数据隐私 | ... | 🟢/🟡/🔴 | ... |
+| 来源 | 权威性 | 一手性 | 可验证 | 时效 | 偏见 | 综合 |
+|------|--------|--------|--------|------|------|------|
+| [名称](URL) | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | 🟢 可信 |
+| [名称](URL) | ⭐ | ⭐⭐ | ⭐ | ⭐⭐ | ⭐ | 🔴 弃用 |
 
-> ⚠️ 本报告仅供研究参考，不构成商业建议。具体业务决策请咨询专业律师。
+### 审计结论
+- 🟢 直接引用：N 条（高可信来源）
+- 🟡 保留参考：N 条（需交叉验证）
+- 🔴 不可引用：N 条（列出原因）
 ```
 
 ## Tool Paths
@@ -212,7 +212,7 @@ Obscura:          D:/myprogram/obscura/target/release/obscura
 ## Common Mistakes
 
 - **Bare source tags without URLs**: NEVER output `[AR:social]` without a clickable link. Every tag must be `[Name](URL) [AR:source]`.
-- **Skipping Phase 4**: Every report MUST have a content/compliance review section. No exceptions.
+- **Skipping Phase 4**: Every report MUST have a source credibility audit. Flag every source's authority, originality, verifiability, timeliness, and bias. Call out which sources you're actually trusting vs discarding.
 - **Single-platform blind spot**: researching only via web search, missing social discussion (Twitter/XHS/Reddit often have more candid takes).
 - **Trusting Jina Reader on anti-bot pages**: Jina gets blocked too. If `r.jina.ai` returns empty/error, escalate to Scrapling StealthyFetcher.
 - **Using yt-dlp on B站**: blocked by B站风控. Use Agent-Reach's `bili search` instead (routed via bili-cli).
