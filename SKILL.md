@@ -21,7 +21,53 @@ triggers:
 
 # OmniScope — 全视研究
 
-Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms. **Extract** (Scrapling) penetrates defenses. **Verify** (deep-research methodology) cross-references and scores reliability.
+Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms. **Extract** (Scrapling) penetrates defenses. **Verify** cross-references and scores reliability. **Audit** flags untrustworthy sources.
+
+---
+
+## ⚡ QUICK-REFERENCE CARD
+
+> Read this first. Every time. Before ANY tool call.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    PRE-FLIGHT CHECKLIST                       │
+│                                                              │
+│  □ 1. Run `agent-reach doctor --json`                        │
+│  □ 2. Pick 3+ platforms from the routing table                │
+│  □ 3. Scout ALL platforms in PARALLEL (not sequential)        │
+│  □ 4. NEVER default to WebSearch alone — that's single-angle  │
+│                                                              │
+│                    PHASE GATES (self-check)                   │
+│                                                              │
+│  After Scout:  3+ platforms covered? 5-15 URLs collected?    │
+│  After Extract: Any 403/402 left? → escalate or flag dead     │
+│  After Verify:  Discrepancies between sources found?          │
+│  After Audit:   Any source flagged RED? → DISCARD it          │
+│                                                              │
+│                    ESCALATION RULES                           │
+│                                                              │
+│  WebFetch returns 403 → Scrapling StealthyFetcher             │
+│  WebFetch returns 402 → Mark PAYWALLED, move on               │
+│  Page is blank/<div id="app"> → Scrapling DynamicFetcher      │
+│  Search snippet only → NOT a primary source, flag it          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚫 ANTI-PATTERN #1 — Defaulting to WebSearch + WebFetch
+
+**This is the most common failure mode.** Your muscle memory will reach for `WebSearch` and `WebFetch` because they're built-in, fast, and don't need permission prompts. RESIST THIS.
+
+Why it fails:
+- WebSearch covers ONE angle (search engine index). Social conversation, code repos, video transcripts, and anti-bot pages are all invisible to it.
+- WebFetch silently gives up on Cloudflare-protected pages. You get 403 and move on, losing the most valuable sources.
+- Search snippets are the search engine's paraphrase, NOT the original page. They can be outdated, decontextualized, or flat wrong.
+
+**The fix**: After the pre-flight checklist, your FIRST action should be a parallel fan-out across 3+ platforms. WebSearch can be ONE of them — not all of them.
+
+---
 
 ## Decision Flow
 
@@ -29,45 +75,70 @@ Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms
 Research request arrives
         │
         ▼
-┌─────────────────────────────────┐
-│ 1. SCOUT: Agent-Reach           │
-│    Multi-platform discovery     │
-│    Web + Social + Video + Code  │
-│    Parallel, independent queries│
-└───────────────┬─────────────────┘
-                │
-                ▼
-┌─────────────────────────────────┐
-│ 2. EXTRACT: Per-URL decision    │
-│                                 │
-│ Normal page → Agent-Reach web   │
-│ Anti-bot page → Scrapling       │
-│   StealthyFetcher               │
-│ JS-heavy SPA → Scrapling        │
-│   DynamicFetcher                │
-│ Structured data → Scrapling     │
-│   Selector (adaptive parsing)   │
-│ Raw ground-truth → Obscura      │
-└───────────────┬─────────────────┘
-                │
-                ▼
-┌─────────────────────────────────┐
-│ 3. VERIFY: Cross-reference      │
-│    Compare search vs primary    │
-│    Flag discrepancies           │
-│    Score reliability per source │
-│    Synthesize with source tags  │
-│    EVERY tag MUST carry a URL   │
-└───────────────┬─────────────────┘
-                │
-                ▼
-┌─────────────────────────────────┐
-│ 4. AUDIT: Source Credibility     │
-│    Score authority & originality │
-│    Flag unverifiable claims      │
-│    Detect bias / commercial agenda│
-│    Timeliness & cross-ref check  │
-└─────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ ⚡ PRE-FLIGHT (30 seconds, before any tool call)          │
+│   1. agent-reach doctor --json                           │
+│   2. Pick 3-6 platforms matched to topic language/domain │
+│   3. Plan parallel queries (write them out, don't run)   │
+└───────────────────────┬─────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ 1. SCOUT: Agent-Reach / WebSearch / gh / yt-dlp │
+│    Multi-platform discovery, PARALLEL queries    │
+│    Target: 5-15 candidate URLs across platforms  │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ ⚡ GATE 1: ≥3 platforms covered? ≥5 URLs found? │
+│    Any 403/402? → tag for escalation             │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ 2. EXTRACT: Route each URL by defense level      │
+│    200 OK + static → Agent-Reach web / Jina      │
+│    403 + Cloudflare → Scrapling StealthyFetcher  │
+│    JS SPA (empty body) → Scrapling DynamicFetcher│
+│    402 / auth wall → Mark PAYWALLED, skip        │
+│    Structured data → Scrapling Selector           │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ ⚡ GATE 2: All 403 pages tried via Scrapling?    │
+│    Paywalled pages tagged and abandoned?          │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ 3. VERIFY: Cross-reference search vs primary     │
+│    Flag discrepancies between sources            │
+│    Search snippet ≠ primary source — check origin │
+│    EVERY source tag MUST carry a clickable URL   │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ ⚡ GATE 3: Any contradictions between sources?   │
+│    Any search-snippet-only claims flagged?        │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ 4. AUDIT: Source credibility matrix              │
+│    ⭐⭐⭐ Authority / Originality / Verifiability │
+│    🟢 Trust directly  🟡 Keep with caution       │
+│    🔴 DISCARD — do not cite                      │
+│    Mark unverifiable claims explicitly            │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────┐
+│ ⚡ GATE 4: ≥1 source flagged RED and discarded?  │
+│    Unverifiable claims marked in report?          │
+└───────────────────────┘
 ```
 
 ## Phase 1 — Scout (Agent-Reach)
@@ -199,6 +270,49 @@ Audit each source across five dimensions:
 - 🔴 不可引用：N 条（列出原因）
 ```
 
+## Escalation Decision Tree
+
+When `WebFetch` fails, don't silently skip — escalate:
+
+```
+WebFetch result?
+        │
+        ├── 200 OK + content ──→ Use it ✓
+        │
+        ├── 403 Forbidden ──→ Scrapling StealthyFetcher
+        │   └── Still blocked? → Scrapling DynamicFetcher (headless browser)
+        │       └── Still blocked? → Flag [UNREACHABLE], note what was lost
+        │
+        ├── 402 Payment Required ──→ Flag [PAYWALLED], move on
+        │
+        ├── 307/308 Redirect ──→ Follow redirect with new URL
+        │   └── Redirected host blocked? → Escalate per above
+        │
+        ├── Empty body / <div id="app"> ──→ Scrapling DynamicFetcher
+        │
+        └── Jina Reader empty/error ──→ Scrapling StealthyFetcher (Jina gets blocked too)
+```
+
+**Critical rule**: Don't silently skip a blocked page. Either escalate to Scrapling, or explicitly flag it as `[UNREACHABLE]` so the user knows what's missing.
+
+---
+
+## Common Mistakes (ranked by frequency)
+
+| # | Mistake | Why it happens | Fix |
+|---|---------|---------------|-----|
+| **1** | **Defaulting to WebSearch + WebFetch** | Built-in tools are fastest; muscle memory | Force parallel fan-out FIRST; WebSearch is ONE angle, not all of them |
+| **2** | **Skipping the pre-flight** | Rushing to "get results" | `agent-reach doctor --json` takes 5 seconds, changes which platforms are available |
+| **3** | **Silently dropping blocked pages** | 403 feels like dead end | Escalate to Scrapling, or flag `[UNREACHABLE]` — never pretend it doesn't exist |
+| **4** | **Treating search snippets as primary sources** | Search results feel authoritative | Snippets are search engine paraphrase — verify against original page or flag as `[AR:search]` |
+| **5** | **Skipping Phase 4 (Audit)** | Report "feels done" after Verify | Every report MUST have a credibility matrix with at least one 🔴 discarded source |
+| **6** | **Single-platform blind spot** | Topic-language/platform mismatch | Chinese topics → 小红书/B站/V2EX; English → Twitter/Reddit; Code → GitHub |
+| **7** | **Bare source tags without URLs** | Sloppy output formatting | `[Source Name](URL) [AR:source]` — every tag carries a clickable link |
+| **8** | **No discrepancies highlighted** | Taking all sources at equal weight | The value is in what source A has that source B doesn't — call out the diff |
+| **9** | **Sequential crawling** | Habit | Scrapling parallelizes 4 URLs; WebSearch + social + code can all fire simultaneously |
+
+---
+
 ## Tool Paths
 
 ```
@@ -208,15 +322,3 @@ Scrapling:        python -c "from scrapling import ..."
 Scrapling MCP:    scrapling mcp
 Obscura:          D:/myprogram/obscura/target/release/obscura
 ```
-
-## Common Mistakes
-
-- **Bare source tags without URLs**: NEVER output `[AR:social]` without a clickable link. Every tag must be `[Name](URL) [AR:source]`.
-- **Skipping Phase 4**: Every report MUST have a source credibility audit. Flag every source's authority, originality, verifiability, timeliness, and bias. Call out which sources you're actually trusting vs discarding.
-- **Single-platform blind spot**: researching only via web search, missing social discussion (Twitter/XHS/Reddit often have more candid takes).
-- **Trusting Jina Reader on anti-bot pages**: Jina gets blocked too. If `r.jina.ai` returns empty/error, escalate to Scrapling StealthyFetcher.
-- **Using yt-dlp on B站**: blocked by B站风控. Use Agent-Reach's `bili search` instead (routed via bili-cli).
-- **Sequential crawling**: Scrapling and Obscura both parallelize well. Never crawl URLs one at a time.
-- **Not running doctor first**: Agent-Reach backends change. Run `agent-reach doctor --json` before every session to see active backends.
-- **No platform diversity**: Chinese topics need 小红书/B站/V2EX, not just Twitter/Reddit. English topics vice versa. Match platforms to the topic's language and audience.
-- **Skipping the diff**: the value is in what one source has and another doesn't. Always highlight discrepancies.
