@@ -1,27 +1,51 @@
 ---
 name: omni-scope
 description: >
-  Use when the user asks for comprehensive internet research that spans multiple platforms —
-  全网调研, 深度调研, 全面调研, 跨平台研究, multi-source investigation.
-  Use when the task demands: (1) broad discovery across web + social + video + code platforms,
-  (2) penetrating anti-bot or JS-heavy sites that normal fetchers can't reach,
-  (3) high-confidence verification where search summaries must be cross-checked against raw primary sources.
-  Triggers on: 全面调研, 跨平台搜索, omni-research, omni, 全平台, 深度对比,
-  "check this across Twitter Reddit and GitHub", "find everything about X".
-  NOT for: single-platform lookups (use agent-reach directly),
-  simple web page reads (use agent-reach web channel),
-  one-off URL fetches without verification needs.
-triggers:
-  - omni:
-    - 全面调研/全平台搜索/跨平台/全网搜索/全方位/omni/omni-scope
-    - 所有平台都搜一下/多平台对比/到各个平台看看
-    - 深度对比/find everything about/cross-platform research
-    - 帮我彻底研究/深挖/全面了解/完整调研
+  跨平台深度调研 pipeline：Scout 撒网（13+ 平台）→ Extract 攻坚（反反爬）→ Verify 验证 → Audit 审计。
+  当用户要求全网调研/深度调研/全面调研/跨平台研究/multi-source investigation 时使用。
+whenToUse: >
+  触发词：全网调研, 深度调研, 全面调研, 跨平台研究, 全平台搜索, omni, omni-scope,
+  所有平台都搜一下, 多平台对比, 深度对比, find everything about X,
+  cross-platform research, "check this across Twitter Reddit and GitHub"。
+  适用：需要跨 web + 社交 + 视频 + 代码平台的广度发现、需要穿透反爬/JS 站点、
+  需要把搜索摘要与一手原始来源交叉验证的高置信调研。
+  不适用：单一平台查询（直接用 agent-reach skill）、简单网页读取（agent-reach web 通道）、
+  无验证需求的一次性 URL 抓取。
 ---
 
 # OmniScope — 全视研究
 
 Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms. **Extract** (Scrapling) penetrates defenses. **Verify** cross-references and scores reliability. **Audit** flags untrustworthy sources.
+
+---
+
+## 🖥️ DeepSeek Harness (DSH) 适配版
+
+本分支（`deepseekdsh`）把 OmniScope 适配为 **DeepSeek Harness skill 插件**。DSH 从 `~/.agents/skills/<name>/SKILL.md` 加载 skill（也支持项目级 `.dsh/skills`、`.agents/skills` 与 `$DSH_HOME/skills`），frontmatter 使用 DSH 的 `name` / `description` / `whenToUse` 字段（无 Claude 专属 `triggers`）。
+
+```powershell
+# 安装（Windows，Git Bash 用户改用 ~/.agents/skills/omni-scope）
+git clone -b deepseekdsh https://github.com/toustifer/omni-scope.git $env:USERPROFILE\.agents\skills\omni-scope
+cd $env:USERPROFILE\.agents\skills\omni-scope
+
+# 预检：检查各平台后端是否可用
+python omni_scope_runner.py --doctor
+
+# 实测查询（按需指定平台，输出 JSON 便于 agent 解析）
+python omni_scope_runner.py "你的调研主题" -p web,github,hn,wikipedia —json
+
+# 传统用法
+python omni_scope_runner.py "你的调研主题" -p twitter,web,github -n 8 -o report.md
+```
+
+runner 环境变量（默认值与旧版硬编码一致）：
+
+| 变量 | 默认 | 作用 |
+|------|------|------|
+| `OMNISCOPE_AGENT_REACH` | `D:/myprogram/Agent-Reach` | Agent-Reach 源码目录（mcporter / twitter / bili 在其中的工作目录） |
+| `OMNISCOPE_OPENCLI_SESSION` | `dujdhsts` | OpenCLI 浏览器会话名（Twitter/Reddit/小红书/知乎/微博/百度百科走真实浏览器） |
+
+在 DSH 中直接对模型说"帮我全网调研 X"即可触发本 skill；模型按下方 pipeline 执行（scout→extract→verify→audit），可调用 `pwsh` 工具运行 runner，或按 Phase 1 表逐平台并行执行。
 
 ---
 
@@ -36,7 +60,9 @@ Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms
 │  □ 1. Run `agent-reach doctor --json`                        │
 │  □ 2. Pick 3+ platforms from the routing table                │
 │  □ 3. Scout ALL platforms in PARALLEL (not sequential)        │
-│  □ 4. NEVER default to WebSearch alone — that's single-angle  │
+│  □ 4. NEVER default to one web search alone — that's single-angle │
+│  □ 5. If a platform backend is DOWN → skip it, log `[SKIP]`    │
+│  □ 6. Minimum 3 platforms SUCCEED before moving to Phase 2      │
 │                                                              │
 │                    PHASE GATES (self-check)                   │
 │                                                              │
@@ -47,8 +73,8 @@ Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms
 │                                                              │
 │                    ESCALATION RULES                           │
 │                                                              │
-│  WebFetch returns 403 → Scrapling StealthyFetcher             │
-│  WebFetch returns 402 → Mark PAYWALLED, move on               │
+│  Built-in fetch 403 → Scrapling StealthyFetcher                 │
+│  Built-in fetch 402 → Mark PAYWALLED, move on                   │
 │  Page is blank/<div id="app"> → Scrapling DynamicFetcher      │
 │  Search snippet only → NOT a primary source, flag it          │
 └──────────────────────────────────────────────────────────────┘
@@ -56,16 +82,16 @@ Three tools, one pipeline. **Scout** (Agent-Reach) discovers across 13 platforms
 
 ---
 
-## 🚫 ANTI-PATTERN #1 — Defaulting to WebSearch + WebFetch
+## 🚫 ANTI-PATTERN #1 — Defaulting to a single built-in web search
 
-**This is the most common failure mode.** Your muscle memory will reach for `WebSearch` and `WebFetch` because they're built-in, fast, and don't need permission prompts. RESIST THIS.
+**This is the most common failure mode.** Your muscle memory will reach for the built-in web search/fetch tools (`web_search` in DeepSeek Harness, `WebSearch`/`WebFetch` in Claude Code) because they're fast and need no setup. RESIST THIS.
 
 Why it fails:
-- WebSearch covers ONE angle (search engine index). Social conversation, code repos, video transcripts, and anti-bot pages are all invisible to it.
-- WebFetch silently gives up on Cloudflare-protected pages. You get 403 and move on, losing the most valuable sources.
+- A built-in web search covers ONE angle (search engine index). Social conversation, code repos, video transcripts, and anti-bot pages are all invisible to it.
+- A built-in fetcher silently gives up on Cloudflare-protected pages. You get 403 and move on, losing the most valuable sources.
 - Search snippets are the search engine's paraphrase, NOT the original page. They can be outdated, decontextualized, or flat wrong.
 
-**The fix**: After the pre-flight checklist, your FIRST action should be a parallel fan-out across 3+ platforms. WebSearch can be ONE of them — not all of them.
+**The fix**: After the pre-flight checklist, your FIRST action should be a parallel fan-out across 3+ platforms. The built-in web search can be ONE of them — not all of them.
 
 ---
 
@@ -84,7 +110,7 @@ Research request arrives
                         │
                         ▼
 ┌─────────────────────────────────────────────────┐
-│ 1. SCOUT: Agent-Reach / WebSearch / gh / yt-dlp │
+│ 1. SCOUT: Agent-Reach / built-in web search / gh / yt-dlp │
 │    Multi-platform discovery, PARALLEL queries    │
 │    Target: 5-15 candidate URLs across platforms  │
 └───────────────────────┬─────────────────────────┘
@@ -149,14 +175,55 @@ Cover at least 3 of these angles in parallel:
 
 | Angle | Platform | Command pattern |
 |-------|----------|----------------|
-| Web search | Exa | `mcporter call 'exa.web_search_exa(query: "Q", numResults: 5)'` |
-| Social (EN) | Twitter, Reddit | `twitter search "Q" -n 10` / `opencli reddit search "Q"` |
+| Web search | Exa | `mcporter call 'exa.web_search_exa(query: "Q", numResults: 8)'` |
+| Social (EN) | Twitter | **Primary:** OpenCLI browser bridge. See `twitter-browser.md` below. **Fallback:** `twitter search "Q" -n 10` |
+| Social (EN) | Reddit | `opencli reddit search "Q"` / `rdt-cli search "Q"` |
 | Social (CN) | 小红书, B站, V2EX | `opencli xiaohongshu search "Q"` / `bili search "Q"` |
 | Code | GitHub | `gh search repos "Q" --sort stars --limit 10` |
-| Video | YouTube, B站 | `yt-dlp --write-sub --skip-download URL` (only YT) |
+| Video | YouTube, B站 | `youtube transcript "VIDEO_ID"` / `bili search "Q"` |
 | Web pages | Jina Reader | `curl -s "https://r.jina.ai/URL"` |
 
+**Twitter via OpenCLI Browser Bridge (no cookie/API issues):**
+```bash
+# Step 1: Open search page in existing browser session (use doctor output for session name)
+opencli browser SESSION open "https://x.com/search?q=URL_ENCODED_QUERY&f=top"
+
+# Step 2: Wait for tweets to load
+opencli browser SESSION wait selector "[data-testid=\"tweet\"]" timeout 10
+
+# Step 3: Extract structured data
+opencli browser SESSION eval "
+JSON.stringify(Array.from(document.querySelectorAll('[data-testid=\"tweet\"]')).slice(0,N).map(t=>({
+  author: t.querySelector('[data-testid=\"User-Name\"]')?.innerText?.split('@')[0]?.trim()||'',
+  handle: t.querySelector('[data-testid=\"User-Name\"]')?.innerText?.match(/@\w+/)?.toString()||'',
+  text: t.querySelector('[data-testid=\"tweetText\"]')?.innerText||'',
+  time: t.querySelector('time')?.getAttribute('datetime')||'',
+  link: t.querySelector('a[href*=\"/status/\"]')?.href||'',
+})))"
+```
+
 Collect 5-15 candidate URLs/sources across all platforms.
+
+### Platform Resilience: Handle Backend Failures Gracefully
+
+**When a platform backend returns an error (exit code non-zero, API unavailable, rate limited), do NOT block the entire pipeline.** Log it and move on:
+
+```
+Error patterns to recognize as SKIP-worthy:
+  "Twitter API temporarily unavailable" → [SKIP:twitter]
+  "opencli: command not found"          → [SKIP:reddit]
+  "bili search" returns empty           → [SKIP:bilibili]
+  "xiaohongshu status: off"             → [SKIP:xiaohongshu]
+  Any exit code ≠ 0 from agent-reach    → [SKIP:platform_name]
+```
+
+**Rules:**
+1. If a platform fails, log `[SKIP:platform] — <reason>` and **immediately move on**
+2. Do NOT retry the same platform in the same turn — wasted time
+3. Do NOT wait for failed platforms before starting Phase 2 — proceed with what you have
+4. The minimum gate is **3 successful platforms** (not 3 attempted)
+5. If fewer than 3 platforms succeed after the first fan-out, try 1-2 alternative platforms not in the original batch
+6. In the final report, note skipped platforms: `已跳过: Twitter (API 不可用), Reddit (CLI 未安装)`
 
 ## Phase 2 — Extract (Scrapling)
 
@@ -272,10 +339,10 @@ Audit each source across five dimensions:
 
 ## Escalation Decision Tree
 
-When `WebFetch` fails, don't silently skip — escalate:
+When a built-in page fetch (or `WebFetch` in Claude) fails, don't silently skip — escalate:
 
 ```
-WebFetch result?
+Fetch result?
         │
         ├── 200 OK + content ──→ Use it ✓
         │
@@ -301,7 +368,7 @@ WebFetch result?
 
 | # | Mistake | Why it happens | Fix |
 |---|---------|---------------|-----|
-| **1** | **Defaulting to WebSearch + WebFetch** | Built-in tools are fastest; muscle memory | Force parallel fan-out FIRST; WebSearch is ONE angle, not all of them |
+| **1** | **Defaulting to a single built-in web search** | Built-in tools are fastest; muscle memory | Force parallel fan-out FIRST; built-in search is ONE angle, not all of them |
 | **2** | **Skipping the pre-flight** | Rushing to "get results" | `agent-reach doctor --json` takes 5 seconds, changes which platforms are available |
 | **3** | **Silently dropping blocked pages** | 403 feels like dead end | Escalate to Scrapling, or flag `[UNREACHABLE]` — never pretend it doesn't exist |
 | **4** | **Treating search snippets as primary sources** | Search results feel authoritative | Snippets are search engine paraphrase — verify against original page or flag as `[AR:search]` |
@@ -309,7 +376,8 @@ WebFetch result?
 | **6** | **Single-platform blind spot** | Topic-language/platform mismatch | Chinese topics → 小红书/B站/V2EX; English → Twitter/Reddit; Code → GitHub |
 | **7** | **Bare source tags without URLs** | Sloppy output formatting | `[Source Name](URL) [AR:source]` — every tag carries a clickable link |
 | **8** | **No discrepancies highlighted** | Taking all sources at equal weight | The value is in what source A has that source B doesn't — call out the diff |
-| **9** | **Sequential crawling** | Habit | Scrapling parallelizes 4 URLs; WebSearch + social + code can all fire simultaneously |
+| **9** | **Sequential crawling** | Habit | Scrapling parallelizes 4 URLs; web search + social + code can all fire simultaneously |
+| **10** | **Blocking on one failed backend** | One platform errors → entire scout stalls | Log `[SKIP:platform]`, move on immediately; gate is 3 SUCCEEDED, not 3 attempted |
 
 ---
 
@@ -317,8 +385,11 @@ WebFetch result?
 
 ```
 Agent-Reach CLI:  agent-reach
-Agent-Reach src:  D:/myprogram/Agent-Reach
+Agent-Reach src:  D:/myprogram/Agent-Reach (env: OMNISCOPE_AGENT_REACH)
 Scrapling:        python -c "from scrapling import ..."
 Scrapling MCP:    scrapling mcp
 Obscura:          D:/myprogram/obscura/target/release/obscura
+OmniScope (DSH):  $env:USERPROFILE/.agents/skills/omni-scope
+Runner:           python omni_scope_runner.py "query" -p twitter,web,github -n 8 [--json|--doctor]
+OpenCLI session:  dujdhsts (env: OMNISCOPE_OPENCLI_SESSION)
 ```

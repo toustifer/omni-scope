@@ -6,6 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-skill-6C47FF?style=for-the-badge&logo=anthropic" alt="Claude Code Skill">
+  <img src="https://img.shields.io/badge/DeepSeek_Harness-skill-blue?style=for-the-badge" alt="DeepSeek Harness Skill">
   <img src="https://img.shields.io/badge/平台-13-00C853?style=for-the-badge" alt="13 Platforms">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT License">
 </p>
@@ -54,6 +55,11 @@ git clone https://github.com/toustifer/omni-scope.git ~/.claude/skills/omni-scop
 # 在 Claude Code 中使用：
 /omni-scope "帮我全面调研 XXX"
 ```
+
+> 💙 **DeepSeek Harness 用户**：本仓库 `deepseekdsh` 分支提供 DSH 适配版 ——
+> DSH 格式 frontmatter（`whenToUse`）、`--doctor` 预检、`--json` 结构化输出、环境变量配置。
+> 安装 & 使用见 **[README.dsh.md](README.dsh.md)**：
+> `git clone -b deepseekdsh https://github.com/toustifer/omni-scope.git ~/.agents/skills/omni-scope`
 
 ### 安装底层依赖
 

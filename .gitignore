@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Node (如果部署前端)
+node_modules/
+dist/
+
+# 临时/输出
+*.log
+report.md
