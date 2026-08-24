@@ -14,7 +14,7 @@ Env:
   OMNISCOPE_OPENCLI_SESSION  OpenCLI 浏览器会话名 (默认 dujdhsts)
 """
 
-import argparse, json, subprocess, sys, os, shutil, time, urllib.parse
+import argparse, json, subprocess, sys, os, shutil, re, time, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
@@ -43,6 +43,11 @@ def run(cmd, timeout=30, cwd=None):
 def _esc(s):
     """Escape for cmd.exe double-quote context."""
     return s.replace('"', '\\"')
+
+
+def _has_cjk(s):
+    """是否包含中日韩统一表意文字 (CJK)。"""
+    return any('\u4e00' <= ch <= '\u9fff' for ch in s)
 
 # ── Platform Scouts ──────────────────────────────────────────
 
@@ -128,10 +133,18 @@ def scout_v2ex(query, n=5):
 
 
 def scout_github(query, n=5):
-    """GitHub仓库搜索."""
-    out = run('gh search repos "' + query + '" --sort stars --limit ' + str(n) + ' 2>&1', timeout=20)
+    """GitHub仓库搜索（中文查询无结果时降级为保留的 ASCII 词条重试）。"""
+    def _search(q):
+        return run('gh search repos "' + q + '" --sort stars --limit ' + str(n) + ' 2>&1', timeout=20)
+
+    out = _search(query)
+    if not out and _has_cjk(query):
+        # gh 对中文查询常返回空 → 去掉 CJK 词条，保留英文产品/模型名重试
+        ascii_q = re.sub(r'[\u4e00-\u9fff]+', ' ', query).strip()
+        if ascii_q and ascii_q != query:
+            out = _search(ascii_q)
     if not out:
-        return ScoutResult("github", "skip", error="GitHub search failed")
+        return ScoutResult("github", "skip", error="GitHub search failed (中文查询已尝试 ASCII 降级)")
     return ScoutResult("github", "ok", data=[{"raw": out}])
 
 
@@ -494,28 +507,47 @@ def format_report(query, results):
 
 
 DOCTOR_TOOLS = [
-    ("agent-reach", "Agent-Reach CLI (13平台发现)"),
-    ("opencli", "OpenCLI (浏览器桥: Twitter/Reddit/小红书/知乎/微博/百度百科)"),
-    ("mcporter", "mcporter (Exa 语义搜索 MCP)"),
-    ("gh", "GitHub CLI (仓库搜索)"),
-    ("yt-dlp", "yt-dlp (YouTube 搜索)"),
-    ("bili", "bili (B站搜索)"),
-    ("scrapling", "Scrapling (反反爬攻坚)"),
-    ("curl", "curl (Jina Reader / V2EX)"),
+    ("agent-reach", "Agent-Reach CLI (13平台发现)", "bin"),
+    ("opencli", "OpenCLI (浏览器桥: Twitter/Reddit/小红书/知乎/微博/百度百科)", "bin"),
+    ("mcporter", "mcporter (Exa 语义搜索 MCP)", "bin"),
+    ("gh", "GitHub CLI (仓库搜索)", "bin"),
+    ("yt-dlp", "yt-dlp (YouTube 搜索)", "bin"),
+    ("bili", "bili (B站搜索)", "bin"),
+    ("scrapling", "Scrapling Python 库 (反反爬攻坚)", "python"),
+    ("curl", "curl (Jina Reader / V2EX)", "bin"),
 ]
 
 
+def _backend_ok(cmd, kind):
+    """bin → PATH 查找；python → import 检测。"""
+    if kind == "python":
+        try:
+            r = subprocess.run(
+                [sys.executable, "-c", "import " + cmd],
+                capture_output=True, timeout=15,
+            )
+            return r.returncode == 0, None
+        except Exception:
+            return False, None
+    path = shutil.which(cmd)
+    return path is not None, path
+
+
 def run_doctor():
-    """Pre-flight: 检查各平台后端 CLI 是否可用 (DSH 启动调研前调用)。"""
+    """Pre-flight: 检查各平台后端是否可用 (DSH 启动调研前调用)。"""
     print("OmniScope Doctor — 平台后端检查\n")
     rows = []
-    for cmd, desc in DOCTOR_TOOLS:
-        path = shutil.which(cmd)
-        ok = path is not None
+    for cmd, desc, kind in DOCTOR_TOOLS:
+        ok, where = _backend_ok(cmd, kind)
         rows.append((cmd, ok))
         status = "OK" if ok else "XX"
-        where = f" -> {path}" if ok else "  (未安装，对应平台将 [SKIP])"
-        print(f"  [{status}] {cmd:12s} {desc}{where}")
+        if ok and kind == "bin":
+            note = f" -> {where}"
+        elif ok:
+            note = "  (python 库已安装)"
+        else:
+            note = "  (未安装，对应平台将 [SKIP])"
+        print(f"  [{status}] {cmd:12s} {desc}{note}")
     print(f"\n  Agent-Reach src : {AGENT_REACH} (存在: {os.path.isdir(AGENT_REACH)})")
     print(f"  OpenCLI session : {OPENCLI_SESSION}")
     missing = [cmd for cmd, ok in rows if not ok]
