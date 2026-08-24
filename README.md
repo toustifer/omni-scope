@@ -55,6 +55,12 @@ git clone https://github.com/toustifer/omni-scope.git ~/.claude/skills/omni-scop
 /omni-scope "帮我全面调研 XXX"
 ```
 
+> 🌊 **DeepSeek Harness 用户**：本仓库 `deepseekdsh` 分支提供 DSH 适配版 ——
+> DSH 格式 frontmatter（`whenToUse`）、runner 增强（`--doctor` 预检 / `--json` 结构化输出 /
+> 环境变量配置 / 中文查询降级 / 429 限流重试与空结果韧性）。
+> 安装：`git clone -b deepseekdsh https://github.com/toustifer/omni-scope.git ~/.agents/skills/omni-scope`
+> 完整文档见分支内 [README.dsh.md](https://github.com/toustifer/omni-scope/blob/deepseekdsh/README.dsh.md)。
+
 ### 安装底层依赖
 
 OmniScope 依赖三个底层工具，各装一次即可：
