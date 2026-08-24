@@ -49,6 +49,22 @@ def _has_cjk(s):
     """是否包含中日韩统一表意文字 (CJK)。"""
     return any('\u4e00' <= ch <= '\u9fff' for ch in s)
 
+
+def _urlopen_with_retry(req, attempts=3, backoff=2.5):
+    """urllib 请求，429 限流时指数退避重试 (2.5s / 5s)。"""
+    import urllib.request
+    last = None
+    for i in range(attempts):
+        try:
+            return urllib.request.urlopen(req, timeout=15)
+        except Exception as e:
+            last = e
+            if getattr(e, "code", None) == 429 and i < attempts - 1:
+                time.sleep(backoff * (i + 1))
+                continue
+            raise
+    raise last
+
 # ── Platform Scouts ──────────────────────────────────────────
 
 
@@ -179,25 +195,25 @@ def scout_hn(query, n=8):
         items = []
         for h in data.get("hits", []):
             items.append({"title": h.get("title",""), "url": h.get("url",""), "points": h.get("points",0), "author": h.get("author",""), "link": "https://news.ycombinator.com/item?id=" + h.get("objectID","")})
-        return ScoutResult("hn", "ok", data=items)
+        return ScoutResult("hn", "ok", data=items) if items else ScoutResult("hn", "skip", error="No results")
     except Exception as e:
         return ScoutResult("hn", "skip", error=str(e))
 
 
 def scout_wikipedia(query, n=5):
-    """Wikipedia search."""
+    """Wikipedia search (429 限流自动退避重试；空结果判 skip)。"""
     import urllib.request, json
     try:
         url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + urllib.parse.quote(query) + "&format=json&srlimit=" + str(n)
         req = urllib.request.Request(url, headers={"User-Agent": "OmniScope/1.0 (research tool; contact@example.com)"})
-        resp = urllib.request.urlopen(req, timeout=15)
+        resp = _urlopen_with_retry(req)
         data = json.loads(resp.read())
         items = []
         for r in data.get("query",{}).get("search",[]):
             title = r.get("title","")
             page_url = "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ","_"))
             items.append({"title": title, "snippet": r.get("snippet",""), "link": page_url})
-        return ScoutResult("wikipedia", "ok", data=items)
+        return ScoutResult("wikipedia", "ok", data=items) if items else ScoutResult("wikipedia", "skip", error="No results")
     except Exception as e:
         return ScoutResult("wikipedia", "skip", error=str(e))
 
